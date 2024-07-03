@@ -71,8 +71,114 @@
             <!-- Здесь будут добавляться товары -->
         </ul>
         <p class="total">Общая сумма: $0</p>
+        <button id="checkout-btn">Оформить заказ</button>
     </div>
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const products = document.querySelectorAll('.product');
+            const cartItems = document.querySelector('.cart-items');
+            const totalElement = document.querySelector('.total');
+            const checkoutButton = document.getElementById('checkout-btn');
+            
+            let cart = [];
 
-    <script src="script.js"></script>
+            products.forEach(product => {
+                const minusButton = product.querySelector('.minus');
+                const plusButton = product.querySelector('.plus');
+                const quantityInput = product.querySelector('.quantity-input');
+
+                minusButton.addEventListener('click', () => {
+                    let quantity = parseInt(quantityInput.value);
+                    if (quantity > 0) {
+                        quantityInput.value = quantity - 1;
+                        updateCart(product, quantity - 1);
+                    }
+                });
+
+                plusButton.addEventListener('click', () => {
+                    let quantity = parseInt(quantityInput.value);
+                    quantityInput.value = quantity + 1;
+                    updateCart(product, quantity + 1);
+                });
+            });
+
+            function updateCart(product, quantity) {
+                const productName = product.querySelector('h2').innerText;
+                const productPrice = parseInt(product.dataset.price);
+
+                const cartItem = cart.find(item => item.name === productName);
+                if (cartItem) {
+                    cartItem.quantity = quantity;
+                    if (quantity === 0) {
+                        cart = cart.filter(item => item.name !== productName);
+                    }
+                } else {
+                    cart.push({ name: productName, price: productPrice, quantity: quantity });
+                }
+
+                renderCart();
+            }
+
+            function renderCart() {
+                cartItems.innerHTML = '';
+                let total = 0;
+                cart.forEach(item => {
+                    if (item.quantity > 0) {
+                        const li = document.createElement('li');
+                        li.innerText = `${item.name} x ${item.quantity} = $${item.price * item.quantity}`;
+                        cartItems.appendChild(li);
+                        total += item.price * item.quantity;
+                    }
+                });
+                totalElement.innerText = `Общая сумма: $${total}`;
+            }
+
+            checkoutButton.addEventListener('click', () => {
+                const payload = {
+                    prices: cart.map(item => ({
+                        label: item.name,
+                        amount: item.price * 100, // стоимость в центах
+                    })),
+                    total_amount: cart.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100,
+                    currency: "USD"
+                };
+
+                Telegram.WebApp.openInvoice(payload, function(status) {
+                    console.log('Invoice status: ', status);
+                });
+            });
+
+            // Примеры использования других методов WebApp SDK
+            console.log('Init data:', Telegram.WebApp.initData);
+            console.log('Platform:', Telegram.WebApp.platform);
+            console.log('Color scheme:', Telegram.WebApp.colorScheme);
+
+            Telegram.WebApp.onEvent('viewportChanged', function(event) {
+                console.log('Viewport changed, is stable:', event.isStateStable);
+            });
+
+            Telegram.WebApp.onEvent('invoiceClosed', function(status) {
+                console.log('Invoice closed, status:', status);
+            });
+
+            // Пример использования MainButton
+            Telegram.WebApp.MainButton.setText('Оформить заказ');
+            Telegram.WebApp.MainButton.show();
+            Telegram.WebApp.MainButton.onClick(function() {
+                checkoutButton.click();
+            });
+
+            // Пример использования BackButton
+            Telegram.WebApp.BackButton.show();
+            Telegram.WebApp.BackButton.onClick(function() {
+                Telegram.WebApp.close();
+            });
+
+            // Сообщить, что мини-приложение готово к показу
+            Telegram.WebApp.ready();
+        });
+    </script>
 </body>
 </html>
